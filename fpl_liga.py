@@ -299,7 +299,7 @@ def build(lid, details, other_leagues=(), log=print):
         m["stdev"] = round(statistics.pstdev(done_scores), 1) if len(done_scores) >= 3 else None
 
         # startellever, bænk og spillerbidrag ud fra holdudtagelserne
-        contrib, bench_by_gw, xi_by_gw, top_by_gw = {}, {}, {}, []
+        contrib, bench_by_gw, bench_players, xi_by_gw, top_by_gw = {}, {}, {}, {}, []
         for g in gws:
             p = picks.get((i, g))
             if not p or not p.get("picks"):
@@ -313,6 +313,7 @@ def build(lid, details, other_leagues=(), log=print):
                     bench[bench.index(sub["element_in"])] = sub["element_out"]
             lp = live_pts[g]
             bench_by_gw[g] = sum(lp.get(e, 0) for e in bench)
+            bench_players[g] = [{"name": pname(e), "pts": lp.get(e, 0)} for e in bench]
             xi_by_gw[g] = set(xi)
             for e in xi:
                 contrib[e] = contrib.get(e, 0) + lp.get(e, 0)
@@ -320,6 +321,8 @@ def build(lid, details, other_leagues=(), log=print):
             top_by_gw.append({"gw": g, "name": pname(best), "pts": lp.get(best, 0)})
         m["_xi"] = xi_by_gw
         m["bench_total"] = sum(bench_by_gw.values())
+        m["bench"] = [bench_by_gw.get(g) for g in gws]
+        m["bench_players"] = [bench_players.get(g) for g in gws]
         bb = max(((v, g) for g, v in bench_by_gw.items() if g in done), default=None)
         m["bench_best"] = {"pts": bb[0], "gw": bb[1]} if bb else None
         top = sorted(contrib.items(), key=lambda kv: -kv[1])[:3]

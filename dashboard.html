@@ -292,6 +292,9 @@
       <h2>🪑 Bænk &amp; transaktioner</h2>
       <p class="desc">Hvem jagter waivers, og hvem glemmer at sætte de rigtige spillere ind?</p>
       <div class="card tbl-wrap" id="tbl-team"></div>
+      <h3 style="margin-top:22px">Bænkpoint pr. runde</h3>
+      <p class="desc">Point fra spillerne på bænken i hver runde – jo rødere, jo flere point blev der efterladt. Hold musen over et felt for at se, hvem der sad på bænken.</p>
+      <div class="card tbl-wrap pad" id="bench-heat"></div>
     </section>
   </div>
 </main>
@@ -674,6 +677,29 @@
       { label: "Holdets MVP", title: "Flest point i startelleveren for holdet", h: (m) => (m.mvp ? `${esc(m.mvp.name)} <span class="sub">${m.mvp.pts}p</span>` : "–"), v: (m) => m.mvp?.pts },
     ];
     table($("tbl-team"), cols, d.managers, { i: 1, dir: -1 });
+    renderBenchHeat(d);
+  }
+
+  function renderBenchHeat(d) {
+    const gws = d.gws, ms = d.managers;
+    const max = Math.max(1, ...ms.flatMap((m) => m.bench.filter((v) => v != null)));
+    const benchTxt = (list) => (list || []).map((p) => `${p.name} ${p.pts}p`).join(", ");
+    const head = `<tr><th class="name nosort">Manager</th>${gws.map((g) => `<th class="nosort">${g}</th>`).join("")}<th class="nosort num">Total</th><th class="nosort num">Snit</th></tr>`;
+    const body = ms.map((m) => {
+      const vals = m.bench.filter((v) => v != null);
+      const cells = gws.map((g, k) => {
+        const v = m.bench[k];
+        if (v == null) return `<td>–</td>`;
+        const t = Math.min(1, v / max);
+        const bg = v <= 0 ? "var(--bg2)" : `rgba(255, 77, 109, ${(0.15 + 0.85 * t).toFixed(2)})`;
+        const fg = v <= 0 ? "var(--muted)" : t > 0.45 ? "#12001a" : "var(--text)";
+        const live = !d.done.includes(g) ? " live" : "";
+        return `<td class="hc${live}" style="background:${bg};color:${fg}" title="${esc(m.name)} · GW ${g} · bænk: ${esc(benchTxt(m.bench_players[k]))}">${v}</td>`;
+      }).join("");
+      const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1).replace(".", ",") : "–";
+      return `<tr><td class="name">${mgrCell(m)}</td>${cells}<td class="num"><b>${m.bench_total}</b></td><td class="num">${avg}</td></tr>`;
+    }).join("");
+    $("bench-heat").innerHTML = `<table class="heat"><thead>${head}</thead><tbody>${body}</tbody></table>`;
   }
 
   // ---------------- Manager-detaljer ----------------
@@ -694,12 +720,14 @@
     const sumBy = Object.fromEntries(D.gw_summary.map((s) => [s.gw, s]));
     const rows = D.gws.map((g, k) => {
       const v = m.net[k], r = m.results[g], s = sumBy[g], c = topBy[g], mt = matchBy[g];
+      const bp = (m.bench_players[k] || []).filter((p) => p.pts !== 0).map((p) => `${esc(p.name)} ${p.pts}p`).join(", ");
       const crown = s && v === s.top ? " 👑" : s && v === s.low ? " 🥄" : "";
       return `<tr><td><b>GW ${g}</b></td><td class="num">${v ?? "–"}${crown}</td><td class="num">${s ? s.avg : "–"}</td>
         <td>${r ? `<span class="pill ${r}">${{ W: "Sejr", D: "Uafgjort", L: "Nederlag" }[r]}</span>` : "–"}</td>
         ${isH2H ? `<td>${mt ? `${esc(mt.opp)} <span class="sub">${mt.pf}–${mt.pa}</span>` : "–"}</td>` : ""}
         <td class="num">${rankIdx[g] != null ? m.rank_hist[rankIdx[g]] : "–"}</td>
-        <td>${c ? `${esc(c.name)} <span class="sub">${c.pts}p</span>` : "–"}</td></tr>`;
+        <td>${c ? `${esc(c.name)} <span class="sub">${c.pts}p</span>` : "–"}</td>
+        <td class="num">${m.bench[k] ?? "–"}</td><td><span class="sub" style="white-space:normal">${bp}</span></td></tr>`;
     }).reverse().join("");
     $("modal-body").innerHTML = `<button class="ghost x">✕ Luk</button>
       <h2>${esc(m.name)}</h2><div class="sub">${esc(m.team)} · nr. ${m.rank} i ligaen${isH2H ? ` · ${m.h2h.w}-${m.h2h.d}-${m.h2h.l}` : ""}</div>
@@ -713,7 +741,7 @@
         <div><b>${m.transactions.total}</b><span>Transaktioner</span></div>
         <div><b>${m.allplay.pct ?? "–"}%</b><span>Alle-mod-alle</span></div>
       </div>
-      <div class="tbl-wrap"><table><thead><tr><th class="nosort">Runde</th><th class="nosort num">Point</th><th class="nosort num">Liga-snit</th><th class="nosort">Resultat</th>${isH2H ? `<th class="nosort">Modstander</th>` : ""}<th class="nosort num">Placering</th><th class="nosort">Bedste spiller</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="tbl-wrap"><table><thead><tr><th class="nosort">Runde</th><th class="nosort num">Point</th><th class="nosort num">Liga-snit</th><th class="nosort">Resultat</th>${isH2H ? `<th class="nosort">Modstander</th>` : ""}<th class="nosort num">Placering</th><th class="nosort">Bedste spiller</th><th class="nosort num">Bænk</th><th class="nosort">Point på bænken</th></tr></thead><tbody>${rows}</tbody></table></div>
       ${(m.draft_picks || []).length ? `<h3 style="margin-top:18px">Draft-valg</h3><div>${m.draft_picks.map((p) => `<span class="chip" style="${p.kept ? "" : "opacity:.55"}" title="${p.kept ? "Stadig på holdet" : "Ikke længere på holdet"}">R${p.round}: ${esc(p.name)} · ${p.pts}p</span>`).join("")}</div><p class="desc" style="margin-top:6px">Tonede valg er ikke længere på holdet.</p>` : ""}`;
     $("modal").classList.add("open");
   }
