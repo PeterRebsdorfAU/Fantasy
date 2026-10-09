@@ -149,6 +149,13 @@
   .fx .vs { color: var(--muted); font-size: 13px; font-weight: 700; text-align: center; }
   .fx .meta { grid-column: 1 / -1; color: var(--muted); font-size: 12px; text-align: center; border-top: 1px solid var(--line); padding-top: 8px; }
   .fx .dot { width: 18px; height: 18px; font-size: 10px; margin: 4px 2px 0 0; }
+  .bench-ctrl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .bench-ctrl select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg2);
+                       color: var(--text); font-size: 15px; font-weight: 700; }
+  .bench-ctrl button { padding: 10px 14px; }
+  .bench-pts { font-size: 20px; font-weight: 800; }
+  .bp { display: inline-block; margin: 2px 8px 2px 0; color: var(--muted); font-size: 13px; }
+  .bp.hit { color: var(--text); font-weight: 700; }
   .others button { padding: 5px 10px; font-size: 12px; margin: 4px 6px 0 0; }
 
   #msg { margin: 30px 0; }
@@ -210,7 +217,8 @@
   <a href="#allemodalle">Alle mod alle</a>
   <a href="#kampe" id="nav-kampe">Næste runde</a>
   <a href="#draft">Draft &amp; waivers</a>
-  <a href="#hold">Bænk &amp; transaktioner</a>
+  <a href="#baenk">Bænkpoint</a>
+  <a href="#hold">Transaktioner</a>
 </div></nav>
 
 <main class="wrap">
@@ -288,13 +296,22 @@
       </div>
     </section>
 
+    <section id="baenk">
+      <h2>🪑 Bænkpoint pr. runde</h2>
+      <p class="desc">Vælg en runde og se, hvor mange point hver manager efterlod på bænken – klar til bødekassen 💸</p>
+      <div class="bench-ctrl">
+        <button type="button" class="ghost" id="bench-prev" title="Forrige runde">◀</button>
+        <select id="bench-gw"></select>
+        <button type="button" class="ghost" id="bench-next" title="Næste runde">▶</button>
+        <button type="button" class="ghost" id="bench-copy">📋 Kopiér til gruppechatten</button>
+      </div>
+      <div class="card tbl-wrap" id="bench-round"></div>
+    </section>
+
     <section id="hold">
-      <h2>🪑 Bænk &amp; transaktioner</h2>
-      <p class="desc">Hvem jagter waivers, og hvem glemmer at sætte de rigtige spillere ind?</p>
+      <h2>🔁 Transaktioner</h2>
+      <p class="desc">Hvem jagter waivers og free agents?</p>
       <div class="card tbl-wrap" id="tbl-team"></div>
-      <h3 style="margin-top:22px">Bænkpoint pr. runde</h3>
-      <p class="desc">Point fra spillerne på bænken i hver runde – jo rødere, jo flere point blev der efterladt. Hold musen over et felt for at se, hvem der sad på bænken.</p>
-      <div class="card tbl-wrap pad" id="bench-heat"></div>
     </section>
   </div>
 </main>
@@ -437,6 +454,7 @@
     renderAllplay(data);
     renderFixtures(data);
     renderDraft(data);
+    renderBench(data);
     renderTeam(data);
   }
 
@@ -672,34 +690,74 @@
       { label: "Waivers", h: (m) => m.transactions.waivers, v: (m) => m.transactions.waivers, num: true },
       { label: "Free agents", h: (m) => m.transactions.free_agents, v: (m) => m.transactions.free_agents, num: true },
       { label: "Bedste fund", h: (m) => (m.transactions.best_in && m.transactions.best_in.pts > 0 ? `${esc(m.transactions.best_in.name)} <span class="sub">${m.transactions.best_in.pts}p</span>` : "–"), v: (m) => m.transactions.best_in?.pts },
-      { label: "Bænkpoint", h: (m) => m.bench_total, v: (m) => m.bench_total, num: true },
-      { label: "Værste bænk", h: (m) => (m.bench_best ? `${m.bench_best.pts} <span class="sub">GW ${m.bench_best.gw}</span>` : "–"), v: (m) => m.bench_best?.pts, num: true },
       { label: "Holdets MVP", title: "Flest point i startelleveren for holdet", h: (m) => (m.mvp ? `${esc(m.mvp.name)} <span class="sub">${m.mvp.pts}p</span>` : "–"), v: (m) => m.mvp?.pts },
     ];
     table($("tbl-team"), cols, d.managers, { i: 1, dir: -1 });
-    renderBenchHeat(d);
   }
 
-  function renderBenchHeat(d) {
-    const gws = d.gws, ms = d.managers;
-    const max = Math.max(1, ...ms.flatMap((m) => m.bench.filter((v) => v != null)));
-    const benchTxt = (list) => (list || []).map((p) => `${p.name} ${p.pts}p`).join(", ");
-    const head = `<tr><th class="name nosort">Manager</th>${gws.map((g) => `<th class="nosort">${g}</th>`).join("")}<th class="nosort num">Total</th><th class="nosort num">Snit</th></tr>`;
-    const body = ms.map((m) => {
-      const vals = m.bench.filter((v) => v != null);
-      const cells = gws.map((g, k) => {
-        const v = m.bench[k];
-        if (v == null) return `<td>–</td>`;
-        const t = Math.min(1, v / max);
-        const bg = v <= 0 ? "var(--bg2)" : `rgba(255, 77, 109, ${(0.15 + 0.85 * t).toFixed(2)})`;
-        const fg = v <= 0 ? "var(--muted)" : t > 0.45 ? "#12001a" : "var(--text)";
-        const live = !d.done.includes(g) ? " live" : "";
-        return `<td class="hc${live}" style="background:${bg};color:${fg}" title="${esc(m.name)} · GW ${g} · bænk: ${esc(benchTxt(m.bench_players[k]))}">${v}</td>`;
-      }).join("");
-      const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1).replace(".", ",") : "–";
-      return `<tr><td class="name">${mgrCell(m)}</td>${cells}<td class="num"><b>${m.bench_total}</b></td><td class="num">${avg}</td></tr>`;
+  let benchIdx = null;
+  function renderBench(d) {
+    const sel = $("bench-gw");
+    sel.innerHTML = d.gws.map((g, k) => `<option value="${k}">GW ${g}${d.done.includes(g) ? "" : " (i gang)"}</option>`).join("");
+    if (benchIdx == null || benchIdx >= d.gws.length) {
+      const lastDone = d.gws.map((g, k) => (d.done.includes(g) ? k : -1)).filter((k) => k >= 0).pop();
+      benchIdx = lastDone ?? d.gws.length - 1;
+    }
+    const go = (k) => { benchIdx = Math.max(0, Math.min(d.gws.length - 1, k)); drawBench(d); };
+    sel.onchange = () => go(+sel.value);
+    $("bench-prev").onclick = () => go(benchIdx - 1);
+    $("bench-next").onclick = () => go(benchIdx + 1);
+    $("bench-copy").onclick = () => copyBench(d);
+    drawBench(d);
+  }
+
+  function benchRows(d) {
+    const k = benchIdx;
+    return d.managers
+      .map((m) => ({ m, pts: m.bench[k], players: m.bench_players[k] || [] }))
+      .filter((r) => r.pts != null)
+      .sort((a, b) => b.pts - a.pts || a.m.name.localeCompare(b.m.name, "da"));
+  }
+
+  function drawBench(d) {
+    const g = d.gws[benchIdx];
+    $("bench-gw").value = benchIdx;
+    $("bench-prev").disabled = benchIdx <= 0;
+    $("bench-next").disabled = benchIdx >= d.gws.length - 1;
+    const rows = benchRows(d);
+    if (!rows.length) { $("bench-round").innerHTML = `<p class="desc pad">Ingen data for GW ${g}.</p>`; return; }
+    const top = rows[0].pts;
+    let rank = 0, prev = null;
+    const body = rows.map((r, i) => {
+      if (r.pts !== prev) { rank = i + 1; prev = r.pts; }
+      const icon = r.pts === top && top > 0 ? " 🪑" : "";
+      const players = r.players.map((p) => `<span class="bp ${p.pts !== 0 ? "hit" : ""}">${esc(p.name)} ${p.pts}p</span>`).join("");
+      return `<tr><td class="rank">${rank}</td><td>${mgrCell(r.m)}</td>
+        <td class="num"><span class="bench-pts">${r.pts}</span>${icon}</td>
+        <td style="white-space:normal">${players}</td></tr>`;
     }).join("");
-    $("bench-heat").innerHTML = `<table class="heat"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    const live = d.done.includes(g) ? "" : `<p class="desc pad" style="margin:0">⏳ GW ${g} er stadig i gang – tallene kan ændre sig.</p>`;
+    $("bench-round").innerHTML = `<table><thead><tr><th class="nosort">#</th><th class="nosort">Manager</th><th class="nosort num">Bænkpoint</th><th class="nosort">Spillere på bænken</th></tr></thead><tbody>${body}</tbody></table>${live}`;
+  }
+
+  function copyBench(d) {
+    const g = d.gws[benchIdx];
+    const rows = benchRows(d);
+    const txt = [`🪑 Bænkpoint GW ${g}${d.done.includes(g) ? "" : " (runden er i gang)"}`]
+      .concat(rows.map((r, i) => {
+        const who = r.players.filter((p) => p.pts !== 0).map((p) => `${p.name} ${p.pts}p`).join(", ");
+        return `${i + 1}. ${r.m.name} – ${r.pts} point${who ? ` (${who})` : ""}`;
+      })).join("\n");
+    const btn = $("bench-copy"), old = btn.textContent;
+    const done = () => { btn.textContent = "✅ Kopieret!"; setTimeout(() => (btn.textContent = old), 1800); };
+    const fallback = () => {
+      const ta = document.createElement("textarea");
+      ta.value = txt; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { prompt("Kopiér teksten:", txt); }
+      ta.remove();
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(txt).then(done, fallback);
+    else fallback();
   }
 
   // ---------------- Manager-detaljer ----------------
