@@ -286,8 +286,6 @@
         <div class="card pad"><h3>🎈 Dem der slap væk</h3><ul class="list" id="dr-gotaway"></ul></div>
         <div class="card pad"><h3>👀 Bedste ledige spillere lige nu</h3><ul class="list" id="dr-free"></ul></div>
       </div>
-      <h3 style="margin-top:22px">Draft-overblik pr. hold</h3>
-      <div class="card tbl-wrap" id="tbl-draft"></div>
     </section>
 
     <section id="hold">
@@ -662,16 +660,6 @@
     $("dr-pickups").innerHTML = li(dr.pickups.filter((p) => p.pts > 0), (p) => p.name, (p) => `${p.owner} · ${p.kind} GW ${p.gw} (ud: ${p.out})`, pts);
     $("dr-gotaway").innerHTML = li(dr.got_away.filter((p) => p.pts > 0), (p) => p.name, (p) => `smidt ud af ${p.owner} i GW ${p.gw}`, pts);
     $("dr-free").innerHTML = li(dr.free_agents, (p) => p.name, () => "ledig", pts);
-    const cols = [
-      { label: "Manager", h: mgrCell, v: (m) => m.name, asc: true },
-      { label: "1. valg", h: (m) => (m.draft.first ? `${esc(m.draft.first.name)} <span class="sub">${m.draft.first.pts}p</span>` : "–"), v: (m) => m.draft.first?.pts },
-      { label: "Bedste valg", h: (m) => (m.draft.best ? `${esc(m.draft.best.name)} <span class="sub">${m.draft.best.pts}p · runde ${m.draft.best.round}</span>` : "–"), v: (m) => m.draft.best?.pts },
-      { label: "Værste tidlige valg", title: "Laveste point blandt runde 1–3", h: (m) => (m.draft.worst_early ? `${esc(m.draft.worst_early.name)} <span class="sub">${m.draft.worst_early.pts}p · runde ${m.draft.worst_early.round}</span>` : "–"), v: (m) => m.draft.worst_early?.pts },
-      { label: "Draft-point", title: "Sæsonpoint for alle egne draft-valg", h: (m) => `<b>${m.draft.score}</b>`, v: (m) => m.draft.score, num: true },
-      { label: "Stadig på holdet", h: (m) => `${m.draft.kept}/${m.draft.count}`, v: (m) => m.draft.kept, num: true },
-      { label: "Trup-point", title: "Sæsonpoint for den nuværende trup", h: (m) => m.squad_pts, v: (m) => m.squad_pts, num: true },
-    ];
-    table($("tbl-draft"), cols, d.managers, { i: 4, dir: -1 });
   }
 
   function renderTeam(d) {
